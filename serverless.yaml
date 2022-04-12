@@ -1,0 +1,152 @@
+service: crypto-prediction
+
+plugins:
+  - serverless-bundle
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  stage: production
+  region: us-east-1
+  iam:
+    role: arn:aws:iam::046766679295:role/LabRole
+
+functions:
+  tweetsSentiment:
+    handler: src/modules/tweet/handler.tweetsSentiment
+    name: TweetsSentimentFunction
+    timeout: 90
+    events:
+      - stream:
+          type: dynamodb
+          arn:
+            Fn::GetAtt: [TweetTable, StreamArn]
+          batchSize: 100
+  websocketConnect:
+    handler: src/modules/websocket/handler.clientConnect
+    name: WebSocketConnectFunction
+    events:
+      - websocket:
+          route: $connect
+  websocketDisconnect:
+    handler: src/modules/websocket/handler.clientDisconnect
+    name: WebSocketDisconnectFunction
+    events:
+      - websocket:
+          route: $disconnect
+  websocketDefault:
+    handler: src/modules/websocket/handler.clientDefault
+    name: WebSocketDefaultFunction
+    events:
+      - websocket:
+          route: $default
+  websocketSendCurrencyData:
+    handler: src/modules/websocket/handler.sendCurrencyData
+    name: WebSocketSendCurrencyDataFunction
+    events:
+      - websocket:
+          route: sendCurrencyData
+  websocketBroadcastCurrencyData:
+    handler: src/modules/websocket/handler.broadcastCurrencyData
+    name: WebSocketBroadcastCurrencyDataFunction
+    events:
+      - stream:
+          type: dynamodb
+          arn:
+            Fn::GetAtt: [TweetSentimentTable, StreamArn]
+          batchSize: 100
+      - stream:
+          type: dynamodb
+          arn:
+            Fn::GetAtt: [CryptoPricePredictionTable, StreamArn]
+          batchSize: 100
+
+resources:
+  Resources:
+    CryptoPriceTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: CryptoPrice
+        AttributeDefinitions:
+          - AttributeName: 'Currency'
+            AttributeType: 'S'
+          - AttributeName: 'Timestamp'
+            AttributeType: 'N'
+        KeySchema:
+          - AttributeName: 'Currency'
+            KeyType: 'HASH'
+          - AttributeName: 'Timestamp'
+            KeyType: 'RANGE'
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+    CryptoPricePredictionTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: CryptoPricePrediction
+        AttributeDefinitions:
+          - AttributeName: 'Currency'
+            AttributeType: 'S'
+          - AttributeName: 'Timestamp'
+            AttributeType: 'N'
+        KeySchema:
+          - AttributeName: 'Currency'
+            KeyType: 'HASH'
+          - AttributeName: 'Timestamp'
+            KeyType: 'RANGE'
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+    TweetTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Tweet
+        AttributeDefinitions:
+          - AttributeName: 'Id'
+            AttributeType: 'S'
+          - AttributeName: 'Timestamp'
+            AttributeType: 'N'
+        KeySchema:
+          - AttributeName: 'Id'
+            KeyType: 'HASH'
+          - AttributeName: 'Timestamp'
+            KeyType: 'RANGE'
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+    TweetSentimentTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: TweetSentiment
+        AttributeDefinitions:
+          - AttributeName: 'Id'
+            AttributeType: 'S'
+          - AttributeName: 'Timestamp'
+            AttributeType: 'N'
+        KeySchema:
+          - AttributeName: 'Id'
+            KeyType: 'HASH'
+          - AttributeName: 'Timestamp'
+            KeyType: 'RANGE'
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+    WebSocketConnTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: WebSocketConnection
+        AttributeDefinitions:
+          - AttributeName: 'Id'
+            AttributeType: 'S'
+        KeySchema:
+          - AttributeName: 'Id'
+            KeyType: 'HASH'
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1

@@ -1,0 +1,21 @@
+# ide
+.vscode
+.idea
+
+# build
+dist
+out
+build
+
+# node
+node_modules
+
+# misc
+.DS_Store
+
+# env
+.env
+.env.local
+
+# serverless
+.serverless
